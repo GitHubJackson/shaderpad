@@ -18,21 +18,26 @@ import {
   type ShaderLanguageId,
   type ShaderStage,
 } from "@shaderpad/runtime";
-import { ShaderEngine } from "@/lib/runtime/three-engine";
+import { ShaderEngine, type GeometryType } from "@/lib/runtime/three-engine";
 import { EXAMPLES, getDefaultExample } from "@/shaders/examples";
 import {
   createAutoSaver,
+  loadLastGeometry,
   loadLastLang,
   loadLastStage,
   loadSavedCode,
+  saveCode,
+  saveLastGeometry,
   saveLastLang,
   saveLastStage,
 } from "@/lib/share/store";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { Toolbar } from "./Toolbar";
 import { CopyButton } from "./CopyButton";
+import { SaveButton } from "./SaveButton";
 import { StageTabs } from "./StageTabs";
 import { LogPanel, type LogEntry } from "./LogPanel";
+import { SceneInfoButton } from "./SceneInfoButton";
 import { resolvedTheme, initTheme } from "@/lib/theme";
 
 type Status = "idle" | "compiling" | "ok" | "error";
@@ -86,11 +91,21 @@ export function Playground() {
   const [stage, setStage] = useState<ShaderStage>(
     () => loadLastStage() || "fragment",
   );
+  const [geometry, setGeometryState] = useState<GeometryType>(
+    () => loadLastGeometry() || "plane",
+  );
   const [code, setCode] = useState<string>("");
   const [status, setStatus] = useState<Status>("idle");
   const [errors, setErrors] = useState<GpuError[]>([]);
   const [supportMsg, setSupportMsg] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  // 切换几何体：更新 state + 同步到引擎 + 持久化
+  const handleGeometryChange = (next: GeometryType) => {
+    setGeometryState(next);
+    engineRef.current?.setGeometry(next);
+    saveLastGeometry(next);
+  };
 
   // ===== Refs =====
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -110,18 +125,19 @@ export function Playground() {
   }, []);
 
   // ===== 初始化代码（按优先级：URL > localStorage > 默认示例）=====
+  // 依赖 [lang, stage, geometry] —— 三个维度任一变化都重新解析"该组合"下的代码
   useEffect(() => {
-    // 启动时从 localStorage 恢复（如果当前 lang+stage 有缓存）
-    const saved = loadSavedCode(lang, stage);
+    const saved = loadSavedCode(lang, stage, geometry);
     if (saved) {
       setCode(saved);
       codeRef.current = saved;
     } else {
-      const example = getDefaultExample(lang, stage);
+      // 几何体维度也参与默认选择，确保每个几何体首访看到对应的 default 示例
+      const example = getDefaultExample(lang, stage, geometry);
       setCode(example.code);
       codeRef.current = example.code;
     }
-  }, [lang, stage]);
+  }, [lang, stage, geometry]);
 
   // ===== 持久化 lang & stage =====
   useEffect(() => {
@@ -130,6 +146,11 @@ export function Playground() {
   useEffect(() => {
     saveLastStage(stage);
   }, [stage]);
+
+  // 引擎挂载后，把恢复出的 geometry 应用到引擎
+  useEffect(() => {
+    engineRef.current?.setGeometry(geometry);
+  }, [geometry]);
 
   // ===== WebGPU 引擎初始化 =====
   useEffect(() => {
@@ -186,8 +207,13 @@ export function Playground() {
   // ===== 自动保存 =====
   const autoSaveRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    autoSaveRef.current = createAutoSaver(lang, stage, () => codeRef.current);
-  }, [lang, stage]);
+    autoSaveRef.current = createAutoSaver(
+      lang,
+      stage,
+      geometry,
+      () => codeRef.current,
+    );
+  }, [lang, stage, geometry]);
 
   // ===== 编译 + 运行 =====
   const compileAndRun = async (source: string) => {
@@ -424,25 +450,25 @@ export function Playground() {
     setStage(next);
   };
 
-  // ===== 复制代码 =====
-  const handleCopyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(codeRef.current);
-    } catch {
-      // 静默失败
-    }
+  // ===== 手动 Run：立即写 localStorage + 强制重新编译 =====
+  const handleRun = () => {
+    const code = codeRef.current;
+    saveCode(lang, stage, code, geometry);
+    compileAndRun(code);
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <Toolbar
-        status={status}
-        supportMsg={supportMsg}
         examples={EXAMPLES.filter(
-          (e) => e.language === lang && e.stage === stage,
+          (e) =>
+            e.language === lang &&
+            e.stage === stage &&
+            (!e.geometry || e.geometry === geometry),
         )}
         onLoadExample={handleLoadExample}
-        onCopyCode={handleCopyCode}
+        geometry={geometry}
+        onChangeGeometry={handleGeometryChange}
         rightSlot={
           <LanguageSwitcher
             current={lang}
@@ -459,7 +485,19 @@ export function Playground() {
         >
           <StageTabs current={stage} onChange={handleStageChange} />
           <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
-            <CopyButton text={code} variant="overlay" label="复制代码" />
+            <div
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                zIndex: 5,
+                display: "flex",
+                gap: 6,
+              }}
+            >
+              <CopyButton text={code} />
+              <SaveButton onRun={handleRun} />
+            </div>
             {stage === "compute" ? (
               <ComputePlaceholder />
             ) : (
@@ -491,6 +529,7 @@ export function Playground() {
         </div>
 
         <div className="pane pane-canvas" ref={canvasContainerRef}>
+          <SceneInfoButton geometry={geometry} />
           {supportMsg && (
             <div style={{ padding: 24, color: "var(--error)" }}>
               <strong>WebGL 不可用</strong>

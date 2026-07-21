@@ -2,9 +2,11 @@
  * Three.js 渲染引擎
  *
  * MVP 范围：
- * - 静态全屏四边形 (PlaneGeometry) + WebGLRenderer
+ * - Plane / Box / Sphere 三种几何体 + WebGLRenderer
  * - RawShaderMaterial 注入用户 fragment / vertex shader
- * - 每帧更新 u_time / u_resolution / u_mouse
+ * - 每帧更新 u_time / u_resolution / u_mouse / MVP 矩阵
+ * - 内置 OrbitControls：左键旋转、右键平移、滚轮缩放
+ * - 场景内 GridHelper + AxesHelper 辅助定位
  *
  * 为何不用 WebGPURenderer：
  * Three.js 0.170 的 WebGPURenderer 走 TSL NodeMaterial 路径，
@@ -14,6 +16,7 @@
  */
 
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export interface EngineOptions {
   container: HTMLElement;
@@ -28,38 +31,35 @@ export interface ShaderError {
 /** 编辑模式：用户当前在编辑哪个 stage */
 export type EditMode = "vertex" | "fragment";
 
-/**
- * 公共 uniform 声明块
- * RawShaderMaterial 不会自动注入任何 uniform/attribute 声明。
- * 用户 shader 引用了 u_time / u_resolution / u_mouse 等，必须在引擎层 prepend。
- *
- * 注意：
- * 1. GLSL ES 1.0 fragment shader 必须显式声明默认 float 精度（vertex 虽可选，
- *    统一声明更稳，避免 naga 解析失败）。
- * 2. u_channel0-3（sampler2D）暂未注入 —— WebGPU 不允许 null sampler binding，
- *    待 Phase 2 引入纹理示例时再加回。
- */
-const COMMON_UNIFORMS = /* glsl */ `
-precision highp float;
-precision highp int;
-uniform float u_time;
-uniform vec2  u_resolution;
-uniform vec2  u_mouse;
-uniform float u_random;
-`;
+/** 几何体类型 */
+export type GeometryType = "plane" | "box" | "sphere";
 
-/** 默认 vertex shader：全屏四边形（GLSL 1.0） */
+/**
+ * 默认 vertex shader：全屏四边形（GLSL 1.0）
+ *
+ * 当用户编辑的是 fragment stage 时，顶点着色器使用这个 passthrough。
+ * RawShaderMaterial 不自动注入任何 attribute / uniform，因此默认 vertex
+ * 必须显式声明 position / uv，以及引擎注入的 MVP 矩阵。
+ */
 const DEFAULT_VERTEX_SHADER = /* glsl */ `
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+
 attribute vec3 position;
 attribute vec2 uv;
 varying vec2 v_uv;
 void main() {
   v_uv = uv;
-  gl_Position = vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
 }
 `;
 
-/** 默认 fragment shader：passthrough UV 显示（GLSL 1.0） */
+/**
+ * 默认 fragment shader：passthrough UV 显示（GLSL 1.0）
+ *
+ * 当用户编辑的是 vertex stage 时，片元着色器使用这个 passthrough。
+ */
 const DEFAULT_FRAGMENT_SHADER = /* glsl */ `
 precision highp float;
 precision highp int;
@@ -72,23 +72,66 @@ void main() {
 export class ShaderEngine {
   private renderer: THREE.WebGLRenderer | null = null;
   private scene: THREE.Scene;
-  private camera: THREE.OrthographicCamera;
+  private camera: THREE.PerspectiveCamera;
   private material: THREE.RawShaderMaterial | null = null;
   private mesh: THREE.Mesh;
   private container: HTMLElement;
   private startTime: number = performance.now();
   private mouse: THREE.Vector2 = new THREE.Vector2(0.5, 0.5);
   private animationId: number = 0;
+  private geometryType: GeometryType = "plane";
+  private controls: OrbitControls | null = null;
+  private helpers: THREE.Group | null = null;
 
   constructor(options: EngineOptions) {
     this.container = options.container;
     this.scene = new THREE.Scene();
-    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-    this.camera.position.z = 1;
+
+    // 透视相机：3/4 视角（右上后方），更好看、立体感更强。
+    // fov=45 在距离 ≈4.7 处视野高度 ≈ 3.9，几何体约占 25%~38% 视口。
+    const aspect =
+      options.container.clientWidth / options.container.clientHeight || 1;
+    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
+    this.camera.position.set(2.5, 2, 3.5);
+    this.camera.lookAt(0, 0, 0);
+
     this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(2, 2),
+      this.createGeometry("plane"),
       new THREE.RawShaderMaterial(),
     );
+  }
+
+  /**
+   * 创建指定类型的几何体。
+   * - plane: 1.5 边长正方形（XY 平面）
+   * - box: 1.2 边长立方体
+   * - sphere: 半径 0.6 的球体（32x16 段）
+   */
+  private createGeometry(type: GeometryType): THREE.BufferGeometry {
+    switch (type) {
+      case "plane":
+        return new THREE.PlaneGeometry(1.5, 1.5);
+      case "box":
+        return new THREE.BoxGeometry(1.2, 1.2, 1.2);
+      case "sphere":
+        return new THREE.SphereGeometry(0.6, 32, 16);
+    }
+  }
+
+  /**
+   * 切换几何体。Material 不变（attribute 接口一致：position/uv），
+   * 仅替换 mesh.geometry。
+   */
+  setGeometry(type: GeometryType) {
+    if (this.geometryType === type) return;
+    this.geometryType = type;
+    const oldGeo = this.mesh.geometry;
+    this.mesh.geometry = this.createGeometry(type);
+    oldGeo.dispose();
+  }
+
+  getGeometryType(): GeometryType {
+    return this.geometryType;
   }
 
   /** 检测 WebGL 支持 */
@@ -129,6 +172,36 @@ export class ShaderEngine {
       this.canvas.style.width = "100%";
       this.canvas.style.height = "100%";
 
+      // OrbitControls：左键旋转、右键平移、滚轮缩放
+      // target 设为原点（mesh 居中），rotate/pan 围绕 mesh 中心
+      this.controls = new OrbitControls(this.camera, this.canvas);
+      this.controls.target.set(0, 0, 0);
+      this.controls.enableDamping = true;
+      this.controls.dampingFactor = 0.08;
+      this.controls.update();
+
+      // 场景辅助物：grid（XZ 平面，10x10）+ axes（原点，1.5 长度）
+      // 颜色用偏暗的灰阶，背景为 #0a0a0a 时仍有对比但不会喧宾夺主
+      this.helpers = new THREE.Group();
+      const grid = new THREE.GridHelper(
+        10,
+        10,
+        0x666666, // 中心十字
+        0x2a2a35, // 普通格线
+      );
+      // GridHelper 默认材质 side=DoubleSide，且 depthWrite=true
+      // 这里让它绘制在物体之后（z 值小于 mesh），避免遮挡
+      grid.position.y = -0.001;
+      this.helpers.add(grid);
+
+      const axes = new THREE.AxesHelper(1.5);
+      // AxesHelper 默认三色：X 红 (0xff0000) / Y 绿 (0x00ff00) / Z 蓝 (0x0000ff)
+      // 与 GridHelper 一起方便判断模型朝向和缩放比例
+      this.helpers.add(axes);
+
+      this.scene.add(this.helpers);
+      this.scene.add(this.mesh);
+
       return { ok: true };
     } catch (e) {
       return {
@@ -165,14 +238,11 @@ export class ShaderEngine {
     }
     this.material = null;
 
-    // RawShaderMaterial 不自动注入：
-    // 1. GLSL 1.0 fragment 必须显式声明默认 float 精度
-    // 2. 所有引用的 uniform 必须显式声明
-    // 引擎层统一 prepend，用户 shader 无需关心样板代码
-    const userFragment =
-      mode === "fragment" ? COMMON_UNIFORMS + source : DEFAULT_FRAGMENT_SHADER;
-    const userVertex =
-      mode === "vertex" ? COMMON_UNIFORMS + source : DEFAULT_VERTEX_SHADER;
+    // RawShaderMaterial 不自动注入任何 attribute / uniform / precision。
+    // 用户 source 即为完整 GLSL 源码（fragment 必须自带 `precision highp float;`），
+    // 未编辑的 stage 用默认 passthrough 补齐。
+    const userFragment = mode === "fragment" ? source : DEFAULT_FRAGMENT_SHADER;
+    const userVertex = mode === "vertex" ? source : DEFAULT_VERTEX_SHADER;
 
     this.material = new THREE.RawShaderMaterial({
       vertexShader: userVertex,
@@ -187,14 +257,19 @@ export class ShaderEngine {
         },
         u_mouse: { value: this.mouse },
         u_random: { value: Math.random() },
+        // 标准 Three.js MVP 矩阵
+        // RawShaderMaterial 不会自动注入，需要手动从 camera / mesh 读取
+        projectionMatrix: { value: new THREE.Matrix4() },
+        viewMatrix: { value: new THREE.Matrix4() },
+        modelMatrix: { value: new THREE.Matrix4() },
       },
     });
 
     this.mesh.material = this.material;
-    this.scene.clear();
-    this.scene.add(this.mesh);
+    // 不再 scene.clear()，否则会清掉 init() 中加入的 grid / axes
+    // mesh 在 init() 已经加入 scene，此处只需更新 material
 
-    // 调试：验证引擎里存的 source 是用户代码 + COMMON_UNIFORMS
+    // 调试：验证引擎里存的 source 与用户 source 一致
     // eslint-disable-next-line no-console
     console.log(
       `[shaderpad] applyShader mode=${mode} fragmentLen=${this.material.fragmentShader.length} vertexLen=${this.material.vertexShader.length}`,
@@ -209,8 +284,7 @@ export class ShaderEngine {
    * 因为 material.program.diagnostics 路径在 Three.js 0.170 不可靠
    * （program 对象不一定存在，diagnostics 字段也不一致）。
    *
-   * line 偏移：user source 前有 7 行引擎 prepend（6 行内容 + 末尾换行），
-   * 错误行号需要减去这个偏移才能对应到编辑器中的行。
+   * 错误行号：现在用户 source 即为完整 GLSL，无需 offset 调整。
    */
   forceCompile():
     | { ok: true; log: string; warnings: string[] }
@@ -235,8 +309,6 @@ export class ShaderEngine {
         errors: [{ line: 0, column: 0, message: "无法获取 WebGL context" }],
       };
     }
-
-    const LINE_OFFSET = 7; // COMMON_UNIFORMS 占用的行数
 
     const allErrors: ShaderError[] = [];
     const allWarnings: string[] = [];
@@ -264,12 +336,7 @@ export class ShaderEngine {
     }
 
     if (allErrors.length > 0) {
-      // 把引擎 prepend 的偏移去掉，让错误行号对应到编辑器
-      const adjusted = allErrors.map((e) => ({
-        ...e,
-        line: Math.max(1, e.line - LINE_OFFSET),
-      }));
-      return { ok: false, errors: adjusted };
+      return { ok: false, errors: allErrors };
     }
 
     return { ok: true, log: "", warnings: allWarnings };
@@ -339,10 +406,22 @@ export class ShaderEngine {
       this.animationId = requestAnimationFrame(animate);
       if (!this.material || !this.renderer) return;
 
+      // OrbitControls：damping 需要每帧 update
+      this.controls?.update();
+
       // 更新 uniforms
       const u = this.material.uniforms;
       if (u.u_time)
         u.u_time.value = (performance.now() - this.startTime) / 1000;
+
+      // MVP 矩阵：每帧从 camera / mesh 读取
+      // projectionMatrix: 相机投影矩阵
+      // viewMatrix: 相机世界变换的逆
+      // modelMatrix: mesh 的世界变换
+      if (u.projectionMatrix)
+        u.projectionMatrix.value.copy(this.camera.projectionMatrix);
+      if (u.viewMatrix) u.viewMatrix.value.copy(this.camera.matrixWorldInverse);
+      if (u.modelMatrix) u.modelMatrix.value.copy(this.mesh.matrixWorld);
 
       this.renderer.render(this.scene, this.camera);
     };
@@ -358,6 +437,9 @@ export class ShaderEngine {
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
     this.renderer.setSize(w, h);
+    // PerspectiveCamera 需要随容器尺寸更新 aspect，否则变形
+    this.camera.aspect = w / h || 1;
+    this.camera.updateProjectionMatrix();
     if (this.material?.uniforms.u_resolution) {
       (this.material.uniforms.u_resolution.value as THREE.Vector2).set(w, h);
     }
@@ -374,6 +456,23 @@ export class ShaderEngine {
 
   dispose() {
     this.stop();
+    this.controls?.dispose();
+    this.controls = null;
+    // 释放 helpers 内所有 Line/Geometry 资源
+    this.helpers?.traverse((obj) => {
+      if (obj instanceof THREE.Line) {
+        obj.geometry?.dispose();
+        const mat = obj.material as
+          | THREE.Material
+          | THREE.Material[]
+          | undefined;
+        if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+        else mat?.dispose();
+      }
+    });
+    this.scene.remove(this.helpers!);
+    this.helpers = null;
+    this.scene.remove(this.mesh);
     if (this.material) this.material.dispose();
     this.renderer?.dispose();
     if (this.canvas?.parentNode) {
