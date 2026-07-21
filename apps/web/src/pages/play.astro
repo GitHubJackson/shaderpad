@@ -1,0 +1,23 @@
+---
+/**
+ * /play —— 分享链接还原页面
+ * 客户端从 ?code=&lang=&t= 读取并初始化 Playground
+ */
+import '@/styles/global.css';
+import { Playground } from '@/components/Playground';
+import { getInitialThemeScript } from '@/lib/theme';
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShaderPad · 分享代码</title>
+    <meta name="robots" content="noindex" />  <!-- 分享页不索引 -->
+    <script is:inline set:html={getInitialThemeScript()} />
+  </head>
+  <body>
+    <Playground client:only="react" />
+  </body>
+</html>

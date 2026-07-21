@@ -1,0 +1,69 @@
+---
+import LearnLayout from '@/layouts/LearnLayout.astro';
+---
+
+<LearnLayout
+  title="着色器基础概念 | Vertex / Fragment / Compute | ShaderPad"
+  description="从顶点着色器到计算着色器，浏览器端着色器编程的核心概念与区别。"
+  keywords="vertex shader, fragment shader, compute shader, 着色器基础"
+>
+  <article>
+    <h1>着色器基础概念</h1>
+    <p class="lead">
+      着色器（Shader）是运行在 GPU 上的小程序。Web 端主要有三种着色器。
+    </p>
+
+    <h2>三种着色器的区别</h2>
+    <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
+      <tr style="border-bottom: 1px solid var(--border);">
+        <th style="text-align:left; padding: 8px;">类型</th>
+        <th style="text-align:left; padding: 8px;">输入</th>
+        <th style="text-align:left; padding: 8px;">输出</th>
+        <th style="text-align:left; padding: 8px;">用途</th>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 8px;"><strong>Vertex</strong></td>
+        <td style="padding: 8px;">3D 顶点坐标</td>
+        <td style="padding: 8px;">屏幕空间位置</td>
+        <td style="padding: 8px;">几何变换、动画</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 8px;"><strong>Fragment</strong></td>
+        <td style="padding: 8px;">像素坐标</td>
+        <td style="padding: 8px;">像素颜色</td>
+        <td style="padding: 8px;">着色、纹理、特效</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 8px;"><strong>Compute</strong></td>
+        <td style="padding: 8px;">任意数据</td>
+        <td style="padding: 8px;">任意数据</td>
+        <td style="padding: 8px;">GPGPU、模拟</td>
+      </tr>
+    </table>
+
+    <h2>数据流管线</h2>
+    <p>一个典型 WebGL/WebGPU 渲染流程：</p>
+    <pre set:html={`CPU 端 JS
+  ↓ 上传顶点数据
+Vertex Shader（每个顶点执行一次）
+  ↓ 输出 gl_Position
+光栅化（硬件）
+  ↓ 插值
+Fragment Shader（每个像素执行一次）
+  ↓ 输出 gl_FragColor
+Frame Buffer → 屏幕`}></pre>
+
+    <h2>ShaderPad 支持范围</h2>
+    <ul>
+      <li><strong>MVP</strong>：Fragment Shader（覆盖 90% ShaderToy 类场景）</li>
+      <li><strong>Phase 3</strong>：Vertex Shader（用于自定义几何体、变形）</li>
+      <li><strong>Phase 4</strong>：Compute Shader（GPGPU、粒子系统）</li>
+    </ul>
+
+    <h2>延伸阅读</h2>
+    <p>
+      完整管线剖析、Uniform/Attribute 机制、性能优化：
+      <a href="https://my-docs.com/graphics/shader-fundamentals">着色器基础完全指南 →</a>
+    </p>
+  </article>
+</LearnLayout>

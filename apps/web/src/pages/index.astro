@@ -1,0 +1,28 @@
+---
+/**
+ * 首页：内嵌 Playground
+ * MVP 阶段：直接渲染编辑器+Canvas
+ */
+import '@/styles/global.css';
+import { Playground } from '@/components/Playground';
+import { getInitialThemeScript } from '@/lib/theme';
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShaderPad · 在线 Shader 编辑器 | GLSL 实时编译</title>
+    <meta name="description" content="ShaderPad 是一个在线着色器调试工具，支持 GLSL 实时编译、错误定位、内置贴图与示例。打开即写，写完即看。" />
+    <meta name="keywords" content="GLSL, 在线 shader 编辑器, WebGPU, fragment shader, 着色器调试" />
+    <meta property="og:title" content="ShaderPad · 在线 Shader 编辑器" />
+    <meta property="og:description" content="打开即写，写完即看。支持 GLSL 实时编译、WebGPU 渲染。" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline set:html={getInitialThemeScript()} />
+  </head>
+  <body>
+    <Playground client:only="react" />
+  </body>
+</html>

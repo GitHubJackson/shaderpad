@@ -1,0 +1,52 @@
+---
+import LearnLayout from '@/layouts/LearnLayout.astro';
+---
+
+<LearnLayout
+  title="WebGPU Compute Shader 入门 | GPGPU 编程 | ShaderPad"
+  description="WebGPU Compute Shader 是通用 GPU 计算的核心：从粒子系统到流体模拟，开启浏览器端 GPGPU 编程。"
+  keywords="WebGPU Compute, GPGPU, 粒子系统, GPU 计算"
+>
+  <article>
+    <h1>WebGPU Compute Shader 入门</h1>
+    <p class="lead">
+      Compute Shader 不渲染到屏幕，只在 GPU 上做通用计算。这是 GPGPU（General-Purpose GPU）的入口。
+    </p>
+
+    <h2>为什么需要 Compute Shader？</h2>
+    <p>
+      Fragment Shader 输出是像素，受屏幕尺寸限制；Compute Shader 可以在任意大小的「工作区」上并行执行。
+      典型应用：
+    </p>
+    <ul>
+      <li>粒子系统（百万级粒子）</li>
+      <li>流体模拟</li>
+      <li>物理仿真（布料、刚体）</li>
+      <li>图像处理（卷积、模糊）</li>
+    </ul>
+
+    <h2>WGSL 基础</h2>
+    <p>WebGPU 原生支持 WGSL（WebGPU Shading Language），以下是 Compute Shader 的最简结构：</p>
+    <pre set:html={`@group(0) @binding(0) var&lt;storage, read_write&gt; data: array&lt;f32&gt;;
+
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3&lt;u32&gt;) {
+  let i = id.x;
+  if (i &lt; arrayLength(&amp;data)) {
+    data[i] = data[i] * 2.0;  // 示例：每元素乘 2
+  }
+}`}></pre>
+
+    <h2>ShaderPad 中的 Compute 支持</h2>
+    <p>
+      Compute Shader 将在 ShaderPad <strong>Phase 4</strong> 启用，届时编辑器顶部会出现
+      <code>Compute</code> 切换选项。
+    </p>
+
+    <h2>延伸阅读</h2>
+    <p>
+      Compute Pipeline 详解、Bind Group 设计、Storage Buffer 优化：
+      <a href="https://my-docs.com/graphics/webgpu-compute">WebGPU Compute 完全指南 →</a>
+    </p>
+  </article>
+</LearnLayout>

@@ -1,0 +1,55 @@
+---
+import '@/styles/global.css';
+import LearnLayout from '@/layouts/LearnLayout.astro';
+import { Playground } from '@/components/Playground';
+import { EXAMPLES } from '@/shaders/examples';
+
+const noiseExample = EXAMPLES.find((e) => e.id === 'noise-2d')!;
+---
+
+<LearnLayout
+  title="GLSL 噪声函数教程 | Value Noise / Perlin / Simplex | ShaderPad"
+  description="系统讲解 GLSL 噪声函数：hash、value noise、perlin noise、simplex noise。配合可运行示例。"
+  keywords="GLSL 噪声, value noise, perlin noise, simplex noise, hash 函数"
+>
+  <article>
+    <h1>GLSL 噪声函数教程</h1>
+    <p class="lead">
+      噪声（Noise）是程序化纹理的基础工具。本文用 ShaderPad 实时展示三种最常用的 GLSL 噪声。
+    </p>
+
+    <h2>1. Hash 函数：噪声的种子</h2>
+    <p>
+      所有噪声都从一个伪随机 hash 函数开始。最常用的是 <code>2D → float</code> 的 hash：
+    </p>
+    <pre set:html={`float hash(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}`}></pre>
+
+    <h2>2. Value Noise：最简单</h2>
+    <p>
+      在整数格点上采样 hash，再用双线性插值平滑：
+    </p>
+    <pre set:html={`float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(hash(i + vec2(0,0)), hash(i + vec2(1,0)), u.x),
+    mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x),
+    u.y
+  );
+}`}></pre>
+
+    <h2>3. 可运行示例</h2>
+    <Playground client:only="react" code={noiseExample.code} />
+
+    <h2>4. 延伸阅读</h2>
+    <p>
+      Perlin Noise 的梯度实现、Simplex Noise 的简化版，详见 my-docs：
+      <a href="https://my-docs.com/graphics/glsl-noise">GLSL 噪声函数完全指南 →</a>
+    </p>
+  </article>
+</LearnLayout>

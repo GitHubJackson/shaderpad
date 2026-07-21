@@ -1,0 +1,53 @@
+---
+import LearnLayout from '@/layouts/LearnLayout.astro';
+import { Playground } from '@/components/Playground';
+import { EXAMPLES } from '@/shaders/examples';
+
+const fbmExample = EXAMPLES.find((e) => e.id === 'fbm')!;
+---
+
+<LearnLayout
+  title="FBM 分形布朗运动教程 | GLSL 云雾噪声 | ShaderPad"
+  description="FBM（Fractional Brownian Motion）通过叠加多个不同频率的噪声制造云雾、火焰、地形等自然纹理。"
+  keywords="FBM, 分形布朗运动, GLSL 云雾, 地形噪声"
+>
+  <article>
+    <h1>FBM 分形布朗运动</h1>
+    <p class="lead">
+      FBM 是 GLSL 制作「自然纹理」的瑞士军刀：火、云、雾、地形，一招搞定。
+    </p>
+
+    <h2>核心思想</h2>
+    <p>
+      自然界中，云雾、地形都是由<strong>不同尺度</strong>的细节叠加而成。
+      FBM 模拟这一现象：每次迭代，频率翻倍、振幅减半。
+    </p>
+
+    <pre set:html={`float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i &lt; 5; i++) {  // 5 个 octave 通常足够
+    v += a * noise(p);
+    p *= 2.0;     // 频率翻倍
+    a *= 0.5;     // 振幅减半
+  }
+  return v;
+}`}></pre>
+
+    <h2>可运行示例</h2>
+    <Playground client:only="react" code={fbmExample.code} />
+
+    <h2>调参指南</h2>
+    <ul>
+      <li><strong>Octaves（迭代次数）</strong>：3-5 是常见选择，&gt;7 视觉差异变小</li>
+      <li><strong>频率系数</strong>：2.0 是标准，更大会显得「细碎」</li>
+      <li><strong>振幅系数</strong>：0.5 让每次迭代细节减半，整体更平滑</li>
+    </ul>
+
+    <h2>延伸阅读</h2>
+    <p>
+      FBM 的数学原理、流体模拟应用、性能优化，详见：
+      <a href="https://my-docs.com/graphics/fbm">FBM 完全指南 →</a>
+    </p>
+  </article>
+</LearnLayout>

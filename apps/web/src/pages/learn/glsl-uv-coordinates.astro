@@ -1,0 +1,55 @@
+---
+/**
+ * /learn/glsl-uv-coordinates —— UV 坐标 SEO 着陆页
+ */
+import '@/styles/global.css';
+import Layout from '@/layouts/LearnLayout.astro';
+import { Playground } from '@/components/Playground';
+import { EXAMPLES } from '@/shaders/examples';
+
+const uvExample = EXAMPLES.find((e) => e.id === 'uv-checker')!;
+const gradientExample = EXAMPLES.find((e) => e.id === 'gradient')!;
+---
+
+<Layout
+  title="GLSL UV 坐标详解 | ShaderPad"
+  description="理解 fragment shader 中的 UV 坐标系统：gl_FragCoord、归一化、坐标系转换，配合可运行示例。"
+  keywords="GLSL UV, gl_FragCoord, 着色器坐标, fragment shader 坐标"
+>
+  <article class="learn">
+    <h1>GLSL UV 坐标详解</h1>
+    <p class="lead">
+      在 fragment shader 中，UV 坐标是像素位置的标准表达方式。本文用三个可运行示例，
+      带你彻底理解 <code>gl_FragCoord</code> 与归一化坐标。
+    </p>
+
+    <h2>1. gl_FragCoord：像素的原始坐标</h2>
+    <p>
+      <code>gl_FragCoord</code> 是 WebGPU/GLSL 内置变量，返回当前像素在画布中的位置（单位：像素）。
+      原点 <code>(0, 0)</code> 在<strong>左下角</strong>，<code>(width, height)</code> 在右上角。
+    </p>
+    <pre set:html={`// 假设画布 512x512，当前像素 (256, 256)
+gl_FragCoord.xy  // = (256, 256, 0, 1)
+gl_FragCoord.z   // = depth，MVP 阶段可忽略`}></pre>
+
+    <h2>2. 归一化到 [0, 1]</h2>
+    <p>
+      直接用像素坐标做 UV 不直观（依赖画布尺寸），通常归一化到 [0, 1] 区间：
+    </p>
+    <pre set:html={`vec2 uv = gl_FragCoord.xy / u_resolution;`}></pre>
+
+    <h2>3. 可运行示例：UV 棋盘格</h2>
+    <p>点击下方示例，实时查看 UV 网格效果：</p>
+    <Playground client:only="react" code={uvExample.code} />
+
+    <h2>4. 进阶：UV 与 u_time 结合</h2>
+    <p>UV 不只是空间维度，结合 <code>u_time</code> 可以做出「流动」效果：</p>
+    <Playground client:only="react" code={gradientExample.code} />
+
+    <h2>5. 深入阅读</h2>
+    <p>
+      完整 UV 教程（含 UV 变换、矩阵构造、纹理采样）见 my-docs：
+      <a href="https://my-docs.com/graphics/glsl-uv-coordinates">GLSL UV 坐标完全指南 →</a>
+    </p>
+  </article>
+</Layout>

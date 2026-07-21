@@ -1,0 +1,19 @@
+{
+  "name": "shaderpad-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ShaderPad · 在线 shader 调试工具 monorepo",
+  "type": "module",
+  "packageManager": "[email protected]",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm -r build",
+    "preview": "pnpm --filter web preview",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r exec rm -rf dist .astro node_modules/.cache"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
