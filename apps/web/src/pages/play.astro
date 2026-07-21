@@ -6,6 +6,7 @@
 import '@/styles/global.css';
 import { Playground } from '@/components/Playground';
 import { getInitialThemeScript } from '@/lib/theme';
+import GoogleAnalytics from "@/components/GoogleAnalytics.astro";
 ---
 
 <!doctype html>
@@ -16,6 +17,7 @@ import { getInitialThemeScript } from '@/lib/theme';
     <title>ShaderPad · 分享代码</title>
     <meta name="robots" content="noindex" />  <!-- 分享页不索引 -->
     <script is:inline set:html={getInitialThemeScript()} />
+    <GoogleAnalytics />
   </head>
   <body>
     <Playground client:only="react" />

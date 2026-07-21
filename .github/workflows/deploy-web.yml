@@ -37,6 +37,7 @@ jobs:
         run: pnpm --filter web build
         env:
           PUBLIC_SITE_URL: https://shaderpad.lucaslib.net
+          PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.PUBLIC_GA_MEASUREMENT_ID }}
 
       - name: 部署到服务器
         uses: burnett01/rsync-deployments@5.2
