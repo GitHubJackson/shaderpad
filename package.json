@@ -4,7 +4,7 @@
   "private": true,
   "description": "ShaderPad · 在线 shader 调试工具 monorepo",
   "type": "module",
-  "packageManager": "[email protected]",
+  "packageManager": "pnpm@10",
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm -r build",
@@ -14,6 +14,6 @@
   },
   "engines": {
     "node": ">=20.0.0",
-    "pnpm": ">=8.0.0"
+    "pnpm": ">=10.0.0"
   }
 }
