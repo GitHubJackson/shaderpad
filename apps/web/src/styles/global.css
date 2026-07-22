@@ -109,10 +109,10 @@ button.primary:hover:not(:disabled) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 12px 16px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  height: 44px;
+  height: 60px;
 }
 
 .toolbar-left,
