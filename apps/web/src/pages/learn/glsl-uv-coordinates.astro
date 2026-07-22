@@ -8,7 +8,7 @@ import { Playground } from '@/components/Playground';
 import { EXAMPLES } from '@/shaders/examples';
 
 const uvExample = EXAMPLES.find((e) => e.id === 'uv-checker')!;
-const gradientExample = EXAMPLES.find((e) => e.id === 'gradient')!;
+const gradientExample = EXAMPLES.find((e) => e.id === 'time-gradient')!;
 ---
 
 <Layout
@@ -40,11 +40,11 @@ gl_FragCoord.z   // = depth，MVP 阶段可忽略`}></pre>
 
     <h2>3. 可运行示例：UV 棋盘格</h2>
     <p>点击下方示例，实时查看 UV 网格效果：</p>
-    <Playground client:only="react" code={uvExample.code} />
+    <Playground client:only="react" initialVertex={uvExample.vertex} initialFragment={uvExample.fragment} />
 
     <h2>4. 进阶：UV 与 u_time 结合</h2>
     <p>UV 不只是空间维度，结合 <code>u_time</code> 可以做出「流动」效果：</p>
-    <Playground client:only="react" code={gradientExample.code} />
+    <Playground client:only="react" initialVertex={gradientExample.vertex} initialFragment={gradientExample.fragment} />
 
     <h2>5. 深入阅读</h2>
     <p>

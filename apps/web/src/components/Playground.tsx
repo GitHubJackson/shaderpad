@@ -46,6 +46,18 @@ type EditorMountFn = (
   monaco: any,
 ) => void;
 
+/**
+ * Playground props
+ *
+ * - `initialVertex` / `initialFragment`：Learn 页面用，用于预填一个示例的
+ *   vertex+fragment 一对（与「Examples 列表里选中某项」行为一致）。
+ *   不传则走「localStorage > 默认示例」的常规解析流程。
+ */
+interface PlaygroundProps {
+  initialVertex?: string;
+  initialFragment?: string;
+}
+
 // ============================================================================
 // Monaco 自定义主题 —— 必须在编辑器创建前（beforeMount）注册
 // 否则第一帧会 fallback 到内置 "vs"(light) 主题，造成暗→亮闪烁
@@ -80,7 +92,10 @@ function setupMonacoThemes(monaco: any) {
   });
 }
 
-export function Playground() {
+export function Playground({
+  initialVertex,
+  initialFragment,
+}: PlaygroundProps = {}) {
   // ===== Theme（监听全局主题，Monaco 主题跟随）=====
   const theme = useStore(resolvedTheme);
 
@@ -88,13 +103,17 @@ export function Playground() {
   const [lang, setLang] = useState<ShaderLanguageId>(
     () => loadLastLang() || "glsl",
   );
+  // stage 仅作为「当前编辑哪个 tab」的 UI 状态 —— 3D 场景同时使用 vertex+fragment
   const [stage, setStage] = useState<ShaderStage>(
     () => loadLastStage() || "fragment",
   );
   const [geometry, setGeometryState] = useState<GeometryType>(
     () => loadLastGeometry() || "plane",
   );
-  const [code, setCode] = useState<string>("");
+  // 每个示例 = vertex + fragment 一对。两个 stage 的代码独立保存，
+  // 切换 tab 只换编辑器里展示的代码，不动引擎里的 material。
+  const [vertexCode, setVertexCode] = useState<string>("");
+  const [fragmentCode, setFragmentCode] = useState<string>("");
   const [status, setStatus] = useState<Status>("idle");
   const [errors, setErrors] = useState<GpuError[]>([]);
   const [supportMsg, setSupportMsg] = useState<string | null>(null);
@@ -110,12 +129,15 @@ export function Playground() {
   // ===== Refs =====
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ShaderEngine | null>(null);
-  const codeRef = useRef<string>(""); // 用于在 engine 闭包中读到最新值
+  // vertexCodeRef / fragmentCodeRef 供引擎闭包与 autoSave 读最新值。
+  // 两个 stage 独立保存（localStorage 维度含 stage），独立刷引擎 material。
+  const vertexCodeRef = useRef<string>("");
+  const fragmentCodeRef = useRef<string>("");
 
   // ===== Adapters =====
   const adapters = useMemo(() => listAdapters(), []);
   const currentAdapter = useMemo(
-    () => adapters.find((a) => a.id === lang)!,
+    () => adapters.find((a: { id: string }) => a.id === lang)!,
     [adapters, lang],
   );
 
@@ -124,20 +146,23 @@ export function Playground() {
     initTheme();
   }, []);
 
-  // ===== 初始化代码（按优先级：URL > localStorage > 默认示例）=====
-  // 依赖 [lang, stage, geometry] —— 三个维度任一变化都重新解析"该组合"下的代码
+  // ===== 初始化代码（按优先级：props > localStorage > 默认示例）=====
+  // 依赖 [lang, geometry] —— 切换 stage tab 不重新解析（不会清空用户编辑）
+  // 依赖 [geometry] 触发「每个几何体独立代码空间」的隔离语义
   useEffect(() => {
-    const saved = loadSavedCode(lang, stage, geometry);
-    if (saved) {
-      setCode(saved);
-      codeRef.current = saved;
-    } else {
-      // 几何体维度也参与默认选择，确保每个几何体首访看到对应的 default 示例
-      const example = getDefaultExample(lang, stage, geometry);
-      setCode(example.code);
-      codeRef.current = example.code;
-    }
-  }, [lang, stage, geometry]);
+    const example = getDefaultExample(lang, geometry);
+    // 优先 localStorage；缺失时 fallback 到示例对应 stage 的代码
+    const savedV = loadSavedCode(lang, "vertex", geometry);
+    const savedF = loadSavedCode(lang, "fragment", geometry);
+    // Learn 页面 props 优先（仅在首屏 / 没有 localStorage 时生效）
+    const nextV = initialVertex ?? savedV ?? example.vertex;
+    const nextF = initialFragment ?? savedF ?? example.fragment;
+    setVertexCode(nextV);
+    setFragmentCode(nextF);
+    vertexCodeRef.current = nextV;
+    fragmentCodeRef.current = nextF;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, geometry]);
 
   // ===== 持久化 lang & stage =====
   useEffect(() => {
@@ -169,8 +194,8 @@ export function Playground() {
         return;
       }
 
-      // 引擎就绪，应用初始 shader
-      compileAndRun(codeRef.current);
+      // 引擎就绪，应用初始 shader（vertex+fragment 一对）
+      compileAndRun(vertexCodeRef.current, fragmentCodeRef.current);
       engine.start();
 
       // 监听 resize
@@ -205,18 +230,28 @@ export function Playground() {
   }, []);
 
   // ===== 自动保存 =====
-  const autoSaveRef = useRef<(() => void) | null>(null);
+  // 每个 stage 独立 autoSave —— 编辑 vertex 只写 vertex 的 slot，
+  // 编辑 fragment 只写 fragment 的 slot。引擎拿到的永远是最新一对。
+  const vertexAutoSaveRef = useRef<(() => void) | null>(null);
+  const fragmentAutoSaveRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    autoSaveRef.current = createAutoSaver(
+    vertexAutoSaveRef.current = createAutoSaver(
       lang,
-      stage,
+      "vertex",
       geometry,
-      () => codeRef.current,
+      () => vertexCodeRef.current,
     );
-  }, [lang, stage, geometry]);
+    fragmentAutoSaveRef.current = createAutoSaver(
+      lang,
+      "fragment",
+      geometry,
+      () => fragmentCodeRef.current,
+    );
+  }, [lang, geometry]);
 
   // ===== 编译 + 运行 =====
-  const compileAndRun = async (source: string) => {
+  // 同时编译 vertex+fragment 两个 stage；任一 pre-check 失败立即返回。
+  const compileAndRun = async (vertex: string, fragment: string) => {
     if (!engineRef.current) return;
 
     // Compute stage 暂未实现：跳过 apply，避免误把 compute 代码当作 fragment
@@ -230,21 +265,28 @@ export function Playground() {
     setErrors([]);
 
     // MVP：compile() 只做轻量语法检查（main 入口存在性），无设备依赖
-    const result = await currentAdapter.compile(source, stage);
-    if (!result.ok) {
+    // 两个 stage 各自过一遍 pre-check
+    const [rV, rF] = await Promise.all([
+      currentAdapter.compile(vertex, "vertex"),
+      currentAdapter.compile(fragment, "fragment"),
+    ]);
+    const failed = !rV.ok
+      ? { stage: "vertex" as const, res: rV }
+      : !rF.ok
+        ? { stage: "fragment" as const, res: rF }
+        : null;
+    if (failed) {
       setStatus("error");
-      setErrors(result.errors);
-      // 记录到 logs
+      setErrors(failed.res.errors);
       appendLog(
         "error",
-        `Pre-check failed: ${result.errors[0]?.message || "unknown"}`,
+        `[${failed.stage}] Pre-check failed: ${failed.res.errors[0]?.message || "unknown"}`,
       );
       return;
     }
 
     // 编译通过，应用到引擎（实际 GLSL → WebGL 编译由 Three.js 内部完成）
-    const editMode = stage === "vertex" ? "vertex" : "fragment";
-    const applied = engineRef.current.applyShader(source, editMode);
+    const applied = engineRef.current.applyShader(vertex, fragment);
     if (!applied.ok) {
       setStatus("error");
       setErrors(
@@ -259,7 +301,7 @@ export function Playground() {
       if (compileResult.warnings.length > 0) {
         compileResult.warnings.forEach((w) => appendLog("warn", w));
       } else {
-        appendLog("info", `${editMode} shader compiled successfully`);
+        appendLog("info", "shader compiled successfully");
       }
       setStatus("ok");
       setErrors([]);
@@ -287,12 +329,23 @@ export function Playground() {
   };
 
   // ===== 编辑器回调 =====
+  // 只更新当前 stage 的 state/ref + 触发对应 stage 的 autoSave；
+  // 引擎同时收到 vertex+fragment 一对，所以传两个 ref 的最新值。
   const handleEditorChange = (value: string | undefined) => {
     const v = value ?? "";
-    setCode(v);
-    codeRef.current = v;
-    autoSaveRef.current?.();
-    compileAndRun(v);
+    if (stage === "vertex") {
+      setVertexCode(v);
+      vertexCodeRef.current = v;
+      vertexAutoSaveRef.current?.();
+    } else if (stage === "fragment") {
+      setFragmentCode(v);
+      fragmentCodeRef.current = v;
+      fragmentAutoSaveRef.current?.();
+    } else {
+      // compute 暂不支持写入
+      return;
+    }
+    compileAndRun(vertexCodeRef.current, fragmentCodeRef.current);
   };
 
   const handleEditorMount: EditorMountFn = (_editor, monaco) => {
@@ -436,12 +489,19 @@ export function Playground() {
   }, [stage]);
 
   // ===== 切换示例 =====
+  // 一个示例 = 一对 (vertex, fragment)。同时写入两个 stage 的 state/ref，
+  // 引擎拿到完整一对直接编译。
   const handleLoadExample = (exampleId: string) => {
     const example = EXAMPLES.find((e) => e.id === exampleId);
     if (!example) return;
-    setCode(example.code);
-    codeRef.current = example.code;
-    compileAndRun(example.code);
+    setVertexCode(example.vertex);
+    setFragmentCode(example.fragment);
+    vertexCodeRef.current = example.vertex;
+    fragmentCodeRef.current = example.fragment;
+    // 加载示例时同步落盘到对应 stage 的 slot
+    saveCode(lang, "vertex", example.vertex, geometry);
+    saveCode(lang, "fragment", example.fragment, geometry);
+    compileAndRun(example.vertex, example.fragment);
   };
 
   // ===== 切换 stage =====
@@ -450,11 +510,15 @@ export function Playground() {
     setStage(next);
   };
 
-  // ===== 手动 Run：立即写 localStorage + 强制重新编译 =====
+  // ===== 手动 Run：立即写当前 stage 的 localStorage + 强制重新编译 =====
+  // 编辑器只展示了当前 stage，但引擎需要 vertex+fragment 一对才能编译。
   const handleRun = () => {
-    const code = codeRef.current;
-    saveCode(lang, stage, code, geometry);
-    compileAndRun(code);
+    if (stage === "vertex") {
+      saveCode(lang, "vertex", vertexCodeRef.current, geometry);
+    } else if (stage === "fragment") {
+      saveCode(lang, "fragment", fragmentCodeRef.current, geometry);
+    }
+    compileAndRun(vertexCodeRef.current, fragmentCodeRef.current);
   };
 
   return (
@@ -462,9 +526,7 @@ export function Playground() {
       <Toolbar
         examples={EXAMPLES.filter(
           (e) =>
-            e.language === lang &&
-            e.stage === stage &&
-            (!e.geometry || e.geometry === geometry),
+            e.language === lang && (!e.geometry || e.geometry === geometry),
         )}
         onLoadExample={handleLoadExample}
         geometry={geometry}
@@ -495,7 +557,9 @@ export function Playground() {
                 gap: 6,
               }}
             >
-              <CopyButton text={code} />
+              <CopyButton
+                text={stage === "vertex" ? vertexCode : fragmentCode}
+              />
               <SaveButton onRun={handleRun} />
             </div>
             {stage === "compute" ? (
@@ -504,7 +568,7 @@ export function Playground() {
               <Editor
                 height="100%"
                 language={currentAdapter.monacoLanguage}
-                value={code}
+                value={stage === "vertex" ? vertexCode : fragmentCode}
                 onChange={handleEditorChange}
                 onMount={handleEditorMount}
                 theme={theme === "light" ? "shaderpad-light" : "shaderpad-dark"}

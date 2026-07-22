@@ -44,7 +44,7 @@ const noiseExample = EXAMPLES.find((e) => e.id === 'noise-2d')!;
 }`}></pre>
 
     <h2>3. 可运行示例</h2>
-    <Playground client:only="react" code={noiseExample.code} />
+    <Playground client:only="react" initialVertex={noiseExample.vertex} initialFragment={noiseExample.fragment} />
 
     <h2>4. 延伸阅读</h2>
     <p>

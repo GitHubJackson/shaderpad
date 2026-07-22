@@ -28,46 +28,8 @@ export interface ShaderError {
   message: string;
 }
 
-/** 编辑模式：用户当前在编辑哪个 stage */
-export type EditMode = "vertex" | "fragment";
-
 /** 几何体类型 */
 export type GeometryType = "plane" | "box" | "sphere";
-
-/**
- * 默认 vertex shader：全屏四边形（GLSL 1.0）
- *
- * 当用户编辑的是 fragment stage 时，顶点着色器使用这个 passthrough。
- * RawShaderMaterial 不自动注入任何 attribute / uniform，因此默认 vertex
- * 必须显式声明 position / uv，以及引擎注入的 MVP 矩阵。
- */
-const DEFAULT_VERTEX_SHADER = /* glsl */ `
-uniform mat4 projectionMatrix;
-uniform mat4 viewMatrix;
-uniform mat4 modelMatrix;
-
-attribute vec3 position;
-attribute vec2 uv;
-varying vec2 v_uv;
-void main() {
-  v_uv = uv;
-  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
-}
-`;
-
-/**
- * 默认 fragment shader：passthrough UV 显示（GLSL 1.0）
- *
- * 当用户编辑的是 vertex stage 时，片元着色器使用这个 passthrough。
- */
-const DEFAULT_FRAGMENT_SHADER = /* glsl */ `
-precision highp float;
-precision highp int;
-varying vec2 v_uv;
-void main() {
-  gl_FragColor = vec4(v_uv, 0.5, 1.0);
-}
-`;
 
 export class ShaderEngine {
   private renderer: THREE.WebGLRenderer | null = null;
@@ -214,14 +176,15 @@ export class ShaderEngine {
   private canvas: HTMLCanvasElement | null = null;
 
   /**
-   * 应用 shader。
-   * - mode='fragment'：用户 source 注入为 fragment，默认 vertex
-   * - mode='vertex'：用户 source 注入为 vertex，默认 fragment（passthrough UV）
-   * @returns ok=true 表示成功；ok=false 时 errors 包含行号+消息
+   * 应用一组合法 vertex + fragment GLSL 源码。
+   *
+   * 两者都是完整 GLSL（RawShaderMaterial 不自动注入任何 attribute / uniform / precision），
+   * 由调用方负责保证两者一致：vertex 必须输出 fragment 期望的 varying，
+   * fragment 必须自带 `precision highp float;`。
    */
   applyShader(
-    source: string,
-    mode: EditMode = "fragment",
+    vertexSource: string,
+    fragmentSource: string,
   ): { ok: true } | { ok: false; errors: ShaderError[] } {
     if (!this.renderer)
       return {
@@ -238,15 +201,9 @@ export class ShaderEngine {
     }
     this.material = null;
 
-    // RawShaderMaterial 不自动注入任何 attribute / uniform / precision。
-    // 用户 source 即为完整 GLSL 源码（fragment 必须自带 `precision highp float;`），
-    // 未编辑的 stage 用默认 passthrough 补齐。
-    const userFragment = mode === "fragment" ? source : DEFAULT_FRAGMENT_SHADER;
-    const userVertex = mode === "vertex" ? source : DEFAULT_VERTEX_SHADER;
-
     this.material = new THREE.RawShaderMaterial({
-      vertexShader: userVertex,
-      fragmentShader: userFragment,
+      vertexShader: vertexSource,
+      fragmentShader: fragmentSource,
       uniforms: {
         u_time: { value: 0 },
         u_resolution: {
@@ -269,10 +226,10 @@ export class ShaderEngine {
     // 不再 scene.clear()，否则会清掉 init() 中加入的 grid / axes
     // mesh 在 init() 已经加入 scene，此处只需更新 material
 
-    // 调试：验证引擎里存的 source 与用户 source 一致
+    // 调试：验证引擎里存的 source 长度
     // eslint-disable-next-line no-console
     console.log(
-      `[shaderpad] applyShader mode=${mode} fragmentLen=${this.material.fragmentShader.length} vertexLen=${this.material.vertexShader.length}`,
+      `[shaderpad] applyShader fragmentLen=${this.material.fragmentShader.length} vertexLen=${this.material.vertexShader.length}`,
     );
 
     return { ok: true };

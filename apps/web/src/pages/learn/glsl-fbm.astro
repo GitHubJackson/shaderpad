@@ -3,7 +3,7 @@ import LearnLayout from '@/layouts/LearnLayout.astro';
 import { Playground } from '@/components/Playground';
 import { EXAMPLES } from '@/shaders/examples';
 
-const fbmExample = EXAMPLES.find((e) => e.id === 'fbm')!;
+const fbmExample = EXAMPLES.find((e) => e.id === 'fbm-cloud')!;
 ---
 
 <LearnLayout
@@ -35,7 +35,7 @@ const fbmExample = EXAMPLES.find((e) => e.id === 'fbm')!;
 }`}></pre>
 
     <h2>可运行示例</h2>
-    <Playground client:only="react" code={fbmExample.code} />
+    <Playground client:only="react" initialVertex={fbmExample.vertex} initialFragment={fbmExample.fragment} />
 
     <h2>调参指南</h2>
     <ul>
