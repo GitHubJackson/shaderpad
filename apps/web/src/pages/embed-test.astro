@@ -1,0 +1,248 @@
+---
+/**
+ * /embed-test —— @shaderpad/playground 模块测试页
+ *
+ * 覆盖三种用法：
+ *  1. 单 stage（向后兼容，type + code）
+ *  2. pair 模式（vertex + fragment 联动 + tab 切换）
+ *  3. 各种 props：geometry / showHelpers / readonly / theme / height
+ */
+import { ShaderPlayground } from "@shaderpad/playground";
+import "@shaderpad/playground/styles";
+import { getInitialThemeScript } from "@/lib/theme";
+import GoogleAnalytics from "@/components/GoogleAnalytics.astro";
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ShaderPad · Playground 模块测试</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline set:html={getInitialThemeScript()} />
+    <GoogleAnalytics />
+    <style>
+      .embed-page {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.6;
+      }
+      .embed-page h1 {
+        font-size: 28px;
+        margin: 0 0 8px;
+      }
+      .embed-page .lead {
+        color: #888;
+        margin: 0 0 32px;
+        font-size: 14px;
+      }
+      .embed-page section {
+        margin: 48px 0;
+      }
+      .embed-page h2 {
+        font-size: 18px;
+        margin: 0 0 4px;
+        font-weight: 600;
+      }
+      .embed-page h2 .meta {
+        font-size: 12px;
+        color: #888;
+        font-weight: 400;
+        margin-left: 8px;
+      }
+      .embed-page p {
+        margin: 0 0 16px;
+        color: #c0c0c0;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="embed-page">
+      <h1>@shaderpad/playground 模块测试</h1>
+      <p class="lead">
+        左右分屏布局 + pair 模式（vertex+fragment 联动 + tab 切换）。
+      </p>
+
+      <section>
+        <h2>1. pair 模式：动态色彩波浪 <span class="meta">vertex + fragment · plane</span></h2>
+        <p>
+          编辑器顶部带 <code>Vertex</code> / <code>Fragment</code> 切换 tab。画布始终用两者联动渲染。改 vertex 的
+          <code>sin()</code> 频率，看波纹变密；改 fragment 的颜色混合公式，看色调变化。
+        </p>
+        <ShaderPlayground
+          client:only="react"
+          geometry="plane"
+          height={440}
+          storageKey="embed-test/pair-wave"
+          pair={{
+            vertex: `precision highp float;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+uniform float u_time;
+attribute vec3 position;
+attribute vec2 uv;
+varying vec2 vUv;
+varying float vElevation;
+void main() {
+  vec3 pos = position;
+  pos.z += sin(pos.x * 5.0 + u_time) * 0.2;
+  vUv = uv;
+  vElevation = pos.z;
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(pos, 1.0);
+}`,
+            fragment: `precision highp float;
+uniform float u_time;
+varying vec2 vUv;
+varying float vElevation;
+void main() {
+  vec3 color = vec3(vUv.x, vUv.y, 1.0);
+  color += vElevation * 2.0;
+  gl_FragColor = vec4(color, 1.0);
+}`,
+          }}
+        />
+      </section>
+
+      <section>
+        <h2>2. pair 模式：球体星空 <span class="meta">vertex + fragment · sphere</span></h2>
+        <p>在球体上跑 shader：vertex 传法线，fragment 用法线方向生成动态花纹。</p>
+        <ShaderPlayground
+          client:only="react"
+          geometry="sphere"
+          height={440}
+          storageKey="embed-test/pair-sphere"
+          pair={{
+            vertex: `precision highp float;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+attribute vec3 position;
+attribute vec3 normal;
+varying vec3 vNormal;
+void main() {
+  vNormal = normal;
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+}`,
+            fragment: `precision highp float;
+uniform float u_time;
+varying vec3 vNormal;
+void main() {
+  vec3 dir = normalize(vNormal);
+  float t = sin(dir.x * 20.0 + u_time)
+          * sin(dir.y * 20.0 - u_time)
+          * sin(dir.z * 20.0);
+  vec3 color = vec3(0.1, 0.3, 0.7) + abs(t) * vec3(1.0, 0.8, 0.4);
+  gl_FragColor = vec4(color, 1.0);
+}`,
+          }}
+        />
+      </section>
+
+      <section>
+        <h2>3. 单 stage：静态红色 <span class="meta">type=fragment · plane · 旧 API 兼容</span></h2>
+        <p>不传 pair，只编辑 fragment；vertex 用模块默认占位。</p>
+        <ShaderPlayground
+          client:only="react"
+          type="fragment"
+          geometry="plane"
+          height={360}
+          storageKey="embed-test/single-red"
+          code={`precision highp float;
+void main() {
+  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+}`}
+        />
+      </section>
+
+      <section>
+        <h2>4. 单 stage：顶点波浪 <span class="meta">type=vertex · plane</span></h2>
+        <p>只编辑 vertex（看不到 fragment 编辑器）。</p>
+        <ShaderPlayground
+          client:only="react"
+          type="vertex"
+          geometry="plane"
+          height={360}
+          storageKey="embed-test/single-vertex"
+          code={`precision highp float;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+uniform float u_time;
+attribute vec3 position;
+void main() {
+  vec3 pos = position;
+  pos.z += sin(pos.x * 5.0 + u_time) * 0.2;
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(pos, 1.0);
+}`}
+        />
+      </section>
+
+      <section>
+        <h2>5. pair 模式：自定义紧凑高度 <span class="meta">height=300 · box</span></h2>
+        <p>验证 height prop 控制画布与编辑器高度。</p>
+        <ShaderPlayground
+          client:only="react"
+          geometry="box"
+          height={300}
+          storageKey="embed-test/pair-box"
+          pair={{
+            vertex: `precision highp float;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+uniform float u_time;
+attribute vec3 position;
+void main() {
+  vec3 pos = position;
+  pos.y += sin(pos.x * 3.0 + u_time) * 0.15;
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(pos, 1.0);
+}`,
+            fragment: `precision highp float;
+uniform float u_time;
+varying vec3 vNormal;
+void main() {
+  vec3 color = 0.5 + 0.5 * cos(u_time + vNormal * 3.0);
+  gl_FragColor = vec4(color, 1.0);
+}`,
+          }}
+        />
+      </section>
+
+      <section>
+        <h2>6. 隐藏辅助线 <span class="meta">pair + showHelpers=false</span></h2>
+        <p>干净画布，无 grid/axes。</p>
+        <ShaderPlayground
+          client:only="react"
+          geometry="sphere"
+          height={360}
+          showHelpers={false}
+          storageKey="embed-test/pair-clean"
+          pair={{
+            vertex: `precision highp float;
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+uniform mat4 modelMatrix;
+attribute vec3 position;
+varying vec3 vPos;
+void main() {
+  vPos = position;
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+}`,
+            fragment: `precision highp float;
+varying vec3 vPos;
+void main() {
+  float t = 0.5 + 0.5 * sin(vPos.x * 3.0);
+  gl_FragColor = vec4(t * 0.3, t * 0.7, 1.0 - t * 0.5, 1.0);
+}`,
+          }}
+        />
+      </section>
+    </main>
+  </body>
+</html>

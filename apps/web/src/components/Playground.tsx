@@ -18,7 +18,7 @@ import {
   type ShaderLanguageId,
   type ShaderStage,
 } from "@shaderpad/runtime";
-import { ShaderEngine, type GeometryType } from "@/lib/runtime/three-engine";
+import { ShaderEngine, type GeometryType } from "@shaderpad/playground";
 import { EXAMPLES, getDefaultExample } from "@/shaders/examples";
 import {
   createAutoSaver,

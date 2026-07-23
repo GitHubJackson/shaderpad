@@ -1,0 +1,63 @@
+/**
+ * ShaderPlayground 样式 —— 嵌入式场景的最小化样式
+ *
+ * 使用 CSS 变量 (--spg-*) 允许宿主页面通过覆盖变量定制外观。
+ * 默认不依赖 Tailwind / 任何 reset，避免污染宿主页面。
+ *
+ * 使用：在使用 ShaderPlayground 的页面入口处 import '@shaderpad/playground/styles';
+ */
+
+.spg-root {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.spg-root *,
+.spg-root *::before,
+.spg-root *::after {
+  box-sizing: border-box;
+}
+
+.spg-root button {
+  font-family: inherit;
+  user-select: none;
+}
+
+.spg-root button:hover {
+  opacity: 1 !important;
+}
+
+.spg-root .spg-editor,
+.spg-root .spg-canvas {
+  position: relative;
+}
+
+/* Monaco 编辑器填满 .spg-editor 的剩余空间（避开 tabs 自身） */
+.spg-root .spg-editor .spg-editor-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+.spg-root .spg-editor .spg-editor-host > div,
+.spg-root .spg-editor .spg-editor-host > div > div {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 错误条内的等宽字体 */
+.spg-root .spg-errors {
+  font-family: var(--font-mono, "JetBrains Mono", Menlo, Consolas, monospace);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 响应式：窄屏（< 720px）改为上下堆叠，编辑器在上 */
+@media (max-width: 720px) {
+  .spg-root .spg-body {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .spg-root .spg-editor {
+    border-right: none !important;
+    border-bottom: 1px solid var(--spg-border);
+  }
+}

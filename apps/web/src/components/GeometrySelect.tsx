@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { GeometryType } from "@/lib/runtime/three-engine";
+import type { GeometryType } from "@shaderpad/playground";
 
 interface Option {
   id: GeometryType;
@@ -26,7 +26,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-export function GeometrySelect({ current, onChange, open, onOpenChange }: Props) {
+export function GeometrySelect({
+  current,
+  onChange,
+  open,
+  onOpenChange,
+}: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   // 点击外部区域关闭

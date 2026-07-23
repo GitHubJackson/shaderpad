@@ -7,7 +7,7 @@
  *   （每个几何体独立的代码空间，切换几何体不会"污染"代码）
  */
 
-import type { GeometryType } from "@/lib/runtime/three-engine";
+import type { GeometryType } from "@shaderpad/playground";
 import type { ShaderLanguageId, ShaderStage } from "@shaderpad/runtime";
 
 const STORAGE_PREFIX = "shaderpad:code:";

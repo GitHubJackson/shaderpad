@@ -12,7 +12,7 @@
  * - `default: true` 标记该 (language, geometry) 组合的首访默认示例。
  */
 
-import type { GeometryType } from "@/lib/runtime/three-engine";
+import type { GeometryType } from "@shaderpad/playground";
 import type { ShaderLanguageId } from "@shaderpad/runtime";
 
 export interface ShaderExample {

@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import type { GeometryType } from "@/lib/runtime/three-engine";
+import type { GeometryType } from "@shaderpad/playground";
 import type { ShaderExample } from "@/shaders/examples";
 import { GeometrySelect } from "./GeometrySelect";
 import { ThemeToggle } from "./ThemeToggle";

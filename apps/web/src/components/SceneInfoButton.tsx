@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { GeometryType } from "@/lib/runtime/three-engine";
+import type { GeometryType } from "@shaderpad/playground";
 
 interface Props {
   geometry: GeometryType;

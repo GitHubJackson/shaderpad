@@ -1,0 +1,33 @@
+{
+  "name": "@shaderpad/playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ShaderPad 可嵌入的 GLSL Playground 模块：编辑器 + 实时预览",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles": "./src/styles/playground.css",
+    "./runtime": "./src/runtime/three-engine.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "@monaco-editor/react": "^4.6.0",
+    "monaco-editor": "^0.50.0",
+    "three": "^0.170.0"
+  },
+  "dependencies": {
+    "@shaderpad/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.170.0",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,46 @@
+---
+title: 第一个片元着色器
+description: 在 ShaderPad 中实现你的第一个 GLSL 片元着色器
+---
+
+import { ShaderPlayground } from "@shaderpad/playground";
+import "@shaderpad/playground/styles";
+
+# 第一个片元着色器
+
+GLSL 的片元着色器（Fragment Shader）控制每个像素的颜色。下面这个最简单的着色器把整个平面涂成红色：
+
+```glsl
+precision highp float;
+void main() {
+  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+}
+```
+
+试着把它嵌入文章里 —— 改改 `vec4` 里的数字，观察效果变化：
+
+<ShaderPlayground
+  type="fragment"
+  geometry="plane"
+  storageKey="tutorial/01-hello-fragment"
+  code={`precision highp float;
+void main() {
+  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+}`}
+/>
+
+## 进阶：用 `u_time` 让颜色动起来
+
+`u_time` 是引擎自动注入的 uniform，表示从启动到当前的秒数。我们可以用它让颜色循环变化：
+
+<ShaderPlayground
+  type="fragment"
+  geometry="plane"
+  storageKey="tutorial/01-hello-animated"
+  code={`precision highp float;
+uniform float u_time;
+void main() {
+  vec3 color = 0.5 + 0.5 * cos(u_time + vec3(0.0, 2.0, 4.0));
+  gl_FragColor = vec4(color, 1.0);
+}`}
+/>
