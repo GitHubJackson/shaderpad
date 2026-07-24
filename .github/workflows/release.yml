@@ -62,7 +62,9 @@ jobs:
       - name: 设置 Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          # 关键：必须指定 npm 官方 registry，OIDC 才能向 npmjs.org 申请 token
+          registry-url: https://registry.npmjs.org/
           cache: pnpm
 
       - name: 安装依赖
@@ -87,17 +89,22 @@ jobs:
           # 2. 找上次 release tag（v*.*.* 格式）
           LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-creatordate | head -1 || true)
 
-          if [ -z "$LAST_TAG" ]; then
-            # 首次发版：扫最近 50 个 commit
-            RANGE="HEAD~50..HEAD"
-            echo "::notice::No previous v*.*.* tag found, scanning last 50 commits"
-          else
-            RANGE="$LAST_TAG..HEAD"
+          # 3. 提取所有 commit subject + body
+          if [ -n "$LAST_TAG" ]; then
             echo "Scanning commits since $LAST_TAG"
+            COMMITS=$(git log "$LAST_TAG..HEAD" --pretty=format:"%s%n%b" 2>/dev/null || true)
+          else
+            # 首次发版：扫最近 50 个 commit（-n 50 比 HEAD~50 更稳，
+            # 仓库 commit 数 < 50 也不会报 "unknown revision"）
+            echo "::notice::No previous v*.*.* tag found, scanning last 50 commits"
+            COMMITS=$(git log -50 HEAD --pretty=format:"%s%n%b" 2>/dev/null || true)
           fi
 
-          # 3. 提取所有 commit subject + body
-          COMMITS=$(git log "$RANGE" --pretty=format:"%s%n%b")
+          # 兜底：万一上面没拿到任何 commit，至少跑得通（默认 patch）
+          if [ -z "$COMMITS" ]; then
+            echo "::warning::No commits found in range, defaulting to patch"
+            COMMITS="chore: initial commit"
+          fi
 
           # 4. 按优先级决定 bump
           if echo "$COMMITS" | grep -qE "^(feat|fix|chore|docs|refactor|perf|test|build|ci|style)!:|BREAKING CHANGE"; then
@@ -122,7 +129,7 @@ jobs:
         run: |
           npm version ${{ steps.bump.outputs.bump }} \
             -m "chore(release): v%s [skip ci]"
-          pnpm publish --access public --no-git-checks
+          npm publish --provenance --access public
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
