@@ -5,8 +5,7 @@
     "rootDir": "./src",
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
-    "types": []
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"]
   },
   "include": ["src/**/*"]
 }

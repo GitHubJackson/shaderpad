@@ -4,7 +4,7 @@
  * 使用 CSS 变量 (--spg-*) 允许宿主页面通过覆盖变量定制外观。
  * 默认不依赖 Tailwind / 任何 reset，避免污染宿主页面。
  *
- * 使用：在使用 ShaderPlayground 的页面入口处 import '@shaderpad/playground/styles';
+ * 使用：在使用 ShaderPlayground 的页面入口处 import '@lucascv/shaderpad-playground/styles';
  */
 
 .spg-root {

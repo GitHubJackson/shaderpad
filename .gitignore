@@ -33,3 +33,6 @@ test-results/
 # Temporary
 .cache/
 .tmp/
+
+# Local pack artifacts (never published; only used for file: install before switching to directory-based file:)
+*.tgz

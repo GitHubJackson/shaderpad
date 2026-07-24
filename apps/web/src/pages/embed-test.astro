@@ -1,14 +1,14 @@
 ---
 /**
- * /embed-test —— @shaderpad/playground 模块测试页
+ * /embed-test —— @lucascv/shaderpad-playground 模块测试页
  *
  * 覆盖三种用法：
  *  1. 单 stage（向后兼容，type + code）
  *  2. pair 模式（vertex + fragment 联动 + tab 切换）
  *  3. 各种 props：geometry / showHelpers / readonly / theme / height
  */
-import { ShaderPlayground } from "@shaderpad/playground";
-import "@shaderpad/playground/styles";
+import { ShaderPlayground } from "@lucascv/shaderpad-playground";
+import "@lucascv/shaderpad-playground/styles";
 import { getInitialThemeScript } from "@/lib/theme";
 import GoogleAnalytics from "@/components/GoogleAnalytics.astro";
 ---
@@ -63,7 +63,7 @@ import GoogleAnalytics from "@/components/GoogleAnalytics.astro";
   </head>
   <body>
     <main class="embed-page">
-      <h1>@shaderpad/playground 模块测试</h1>
+      <h1>@lucascv/shaderpad-playground 模块测试</h1>
       <p class="lead">
         左右分屏布局 + pair 模式（vertex+fragment 联动 + tab 切换）。
       </p>
@@ -198,7 +198,12 @@ uniform mat4 viewMatrix;
 uniform mat4 modelMatrix;
 uniform float u_time;
 attribute vec3 position;
+attribute vec3 normal;
+varying vec3 vNormal;
+varying vec2 vUv;
 void main() {
+  vNormal = normal;
+  vUv = position.xy * 0.5 + 0.5;
   vec3 pos = position;
   pos.y += sin(pos.x * 3.0 + u_time) * 0.15;
   gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(pos, 1.0);
@@ -206,6 +211,7 @@ void main() {
             fragment: `precision highp float;
 uniform float u_time;
 varying vec3 vNormal;
+varying vec2 vUv;
 void main() {
   vec3 color = 0.5 + 0.5 * cos(u_time + vNormal * 3.0);
   gl_FragColor = vec4(color, 1.0);

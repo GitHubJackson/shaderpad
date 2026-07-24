@@ -6,6 +6,7 @@
   "description": "ShaderPad 工具站 (shaderpad.io)",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0",
+    "prebuild": "pnpm -F @lucascv/shaderpad-playground build",
     "build": "astro build",
     "preview": "astro preview --host 0.0.0.0",
     "typecheck": "astro check"
@@ -14,7 +15,7 @@
     "@astrojs/react": "^3.6.2",
     "@monaco-editor/react": "^4.6.0",
     "@shaderpad/runtime": "workspace:*",
-    "@shaderpad/playground": "workspace:*",
+    "@lucascv/shaderpad-playground": "workspace:*",
     "astro": "^4.15.0",
     "lz-string": "^1.5.0",
     "monaco-editor": "^0.50.0",

@@ -160,7 +160,8 @@ function ShaderPlaygroundInner({
   // 首次 mount：draft > prop > 类型默认
   const [vertexCode, setVertexCode] = useState<string>(() => {
     if (isPairMode && storageKey) {
-      const d = loadPlaygroundDraft(`${storageKey}:vertex`);
+      const sourceForHash = pair?.vertex ?? fallbackFor("vertex");
+      const d = loadPlaygroundDraft(`${storageKey}:vertex`, sourceForHash);
       if (d !== null) return d;
     }
     return isPairMode
@@ -169,7 +170,8 @@ function ShaderPlaygroundInner({
   });
   const [fragmentCode, setFragmentCode] = useState<string>(() => {
     if (isPairMode && storageKey) {
-      const d = loadPlaygroundDraft(`${storageKey}:fragment`);
+      const sourceForHash = pair?.fragment ?? fallbackFor("fragment");
+      const d = loadPlaygroundDraft(`${storageKey}:fragment`, sourceForHash);
       if (d !== null) return d;
     }
     return isPairMode
@@ -180,7 +182,8 @@ function ShaderPlaygroundInner({
   // 单 stage 模式：当前编辑 stage 的代码
   const [singleCode, setSingleCode] = useState<string>(() => {
     if (!isPairMode && storageKey) {
-      const d = loadPlaygroundDraft(storageKey);
+      const sourceForHash = initialCode || fallbackFor(initialType);
+      const d = loadPlaygroundDraft(storageKey, sourceForHash);
       if (d !== null) return d;
     }
     return initialCode || fallbackFor(initialType);
@@ -201,20 +204,25 @@ function ShaderPlaygroundInner({
     if (sig === propSigRef.current) return;
     propSigRef.current = sig;
     if (isPairMode && pair) {
+      const vertexSource = pair.vertex ?? fallbackFor("vertex");
+      const fragmentSource = pair.fragment ?? fallbackFor("fragment");
       setVertexCode(
         storageKey
-          ? (loadPlaygroundDraft(`${storageKey}:vertex`) ?? pair.vertex)
+          ? (loadPlaygroundDraft(`${storageKey}:vertex`, vertexSource) ??
+              pair.vertex)
           : pair.vertex,
       );
       setFragmentCode(
         storageKey
-          ? (loadPlaygroundDraft(`${storageKey}:fragment`) ?? pair.fragment)
+          ? (loadPlaygroundDraft(`${storageKey}:fragment`, fragmentSource) ??
+              pair.fragment)
           : pair.fragment,
       );
     } else {
+      const singleSource = initialCode ?? fallbackFor(initialType);
       setSingleCode(
         storageKey
-          ? (loadPlaygroundDraft(storageKey) ??
+          ? (loadPlaygroundDraft(storageKey, singleSource) ??
               initialCode ??
               fallbackFor(initialType))
           : initialCode || fallbackFor(initialType),
@@ -229,10 +237,17 @@ function ShaderPlaygroundInner({
     if (readonly || !storageKey) return;
     const persist = () => {
       if (isPairMode) {
-        savePlaygroundDraft(`${storageKey}:vertex`, vertexCode);
-        savePlaygroundDraft(`${storageKey}:fragment`, fragmentCode);
+        const vertexSource = pair?.vertex ?? fallbackFor("vertex");
+        const fragmentSource = pair?.fragment ?? fallbackFor("fragment");
+        savePlaygroundDraft(`${storageKey}:vertex`, vertexSource, vertexCode);
+        savePlaygroundDraft(
+          `${storageKey}:fragment`,
+          fragmentSource,
+          fragmentCode,
+        );
       } else {
-        savePlaygroundDraft(storageKey, singleCode);
+        const singleSource = initialCode || fallbackFor(initialType);
+        savePlaygroundDraft(storageKey, singleSource, singleCode);
       }
     };
     if (saveTimerRef.current !== null) {
@@ -273,14 +288,23 @@ function ShaderPlaygroundInner({
     if (isPairMode) {
       if (activeStage === "vertex") {
         setVertexCode(pair?.vertex ?? fallbackFor("vertex"));
-        if (storageKey) clearPlaygroundDraft(`${storageKey}:vertex`);
+        if (storageKey)
+          clearPlaygroundDraft(
+            `${storageKey}:vertex`,
+            pair?.vertex ?? fallbackFor("vertex"),
+          );
       } else {
         setFragmentCode(pair?.fragment ?? fallbackFor("fragment"));
-        if (storageKey) clearPlaygroundDraft(`${storageKey}:fragment`);
+        if (storageKey)
+          clearPlaygroundDraft(
+            `${storageKey}:fragment`,
+            pair?.fragment ?? fallbackFor("fragment"),
+          );
       }
     } else {
-      setSingleCode(initialCode || fallbackFor(singleType));
-      if (storageKey) clearPlaygroundDraft(storageKey);
+      const sourceForHash = initialCode || fallbackFor(singleType);
+      setSingleCode(sourceForHash);
+      if (storageKey) clearPlaygroundDraft(storageKey, sourceForHash);
     }
   };
 
@@ -434,7 +458,9 @@ function ShaderPlaygroundInner({
                     onClick={() => setActiveStage(s)}
                     style={{
                       padding: "4px 12px",
-                      background: active ? "var(--spg-tab-active)" : "transparent",
+                      background: active
+                        ? "var(--spg-tab-active)"
+                        : "transparent",
                       color: active ? "var(--spg-fg)" : "var(--spg-muted)",
                       border: "none",
                       borderBottom: active

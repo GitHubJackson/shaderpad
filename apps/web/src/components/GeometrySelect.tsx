@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { GeometryType } from "@shaderpad/playground";
+import type { GeometryType } from "@lucascv/shaderpad-playground";
 
 interface Option {
   id: GeometryType;

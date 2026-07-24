@@ -1,11 +1,11 @@
 /**
- * @shaderpad/playground —— 公共 API
+ * @lucascv/shaderpad-playground —— 公共 API
  *
  * 嵌入式 GLSL Playground 组件：在 MDX/MD 文章中嵌入可交互的 GLSL 编辑器+预览。
  *
  * 最小示例：
  *
- *   import { ShaderPlayground } from '@shaderpad/playground';
+ *   import { ShaderPlayground } from '@lucascv/shaderpad-playground';
  *
  *   <ShaderPlayground
  *     code={`precision highp float;
@@ -16,7 +16,7 @@
  *   />
  *
  * 样式（可选）：
- *   import '@shaderpad/playground/styles';
+ *   import '@lucascv/shaderpad-playground/styles';
  */
 
 export { ShaderPlayground } from "./ui/ShaderPlayground";

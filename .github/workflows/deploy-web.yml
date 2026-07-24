@@ -33,8 +33,15 @@ jobs:
       - name: 类型检查
         run: pnpm typecheck
 
-      - name: 构建
-        run: pnpm --filter web build
+      - name: 构建 shader-playground 包
+        # 必须先构建，apps/web 引用 @lucascv/shaderpad-playground 的 CSS / .d.ts
+        working-directory: packages/shader-playground
+        run: pnpm build
+
+      - name: 构建 web
+        # 显式 cd 到 apps/web（不依赖 package.json 的 prebuild 钩子）
+        working-directory: apps/web
+        run: pnpm build
         env:
           PUBLIC_SITE_URL: https://shaderpad.lucaslib.net
           PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.PUBLIC_GA_MEASUREMENT_ID }}

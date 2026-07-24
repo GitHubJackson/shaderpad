@@ -1,0 +1,134 @@
+name: Release
+
+# 双重触发：
+#   1. push 到 main 且命中路径 → 自动解析 commit 决定 bump → 自动发版
+#   2. workflow_dispatch → 手动覆盖 bump 类型
+#
+# 自动 bump 规则（按优先级）：
+#   - 任意 commit 包含 BREAKING CHANGE / subject 含 !: → major
+#   - 否则任意 commit subject 以 feat: 开头 → minor
+#   - 否则 → patch（包括 fix: / chore: / docs: 等）
+#
+# 避免无限循环：release commit 自动带 [skip ci]，push 后不会再次触发。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # 核心：只有 shader-playground 包本身改动才发
+      - "packages/shader-playground/**"
+      # 根级配置（影响包构建）
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      # 工作流自身
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "覆盖自动检测（留空 = 按 commit 自动解析）"
+        required: false
+        default: ""
+        type: choice
+        options:
+          - ""
+          - patch
+          - minor
+          - major
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Publish @lucascv/shaderpad-playground
+    runs-on: ubuntu-latest
+    # OIDC 鉴权用 id-token，commit/push 用 contents
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: 检出
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8.11.0
+
+      - name: 设置 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 决定 bump 类型
+        id: bump
+        working-directory: packages/shader-playground
+        env:
+          # 手动 input 走环境变量（避免 ${{ }} 在 shell 里二次展开）
+          MANUAL_BUMP: ${{ inputs.bump }}
+        run: |
+          set -e
+
+          # 1. 手动 input 优先级最高
+          if [ -n "$MANUAL_BUMP" ]; then
+            echo "Manual override: $MANUAL_BUMP"
+            echo "bump=$MANUAL_BUMP" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 2. 找上次 release tag（v*.*.* 格式）
+          LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-creatordate | head -1 || true)
+
+          if [ -z "$LAST_TAG" ]; then
+            # 首次发版：扫最近 50 个 commit
+            RANGE="HEAD~50..HEAD"
+            echo "::notice::No previous v*.*.* tag found, scanning last 50 commits"
+          else
+            RANGE="$LAST_TAG..HEAD"
+            echo "Scanning commits since $LAST_TAG"
+          fi
+
+          # 3. 提取所有 commit subject + body
+          COMMITS=$(git log "$RANGE" --pretty=format:"%s%n%b")
+
+          # 4. 按优先级决定 bump
+          if echo "$COMMITS" | grep -qE "^(feat|fix|chore|docs|refactor|perf|test|build|ci|style)!:|BREAKING CHANGE"; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -qE "^feat"; then
+            BUMP="minor"
+          else
+            BUMP="patch"
+          fi
+
+          echo "Auto-detected bump: $BUMP"
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: 构建 shader-playground
+        working-directory: packages/shader-playground
+        run: pnpm build
+
+      - name: 升版本 + 发布
+        working-directory: packages/shader-playground
+        # npm version 自动改 package.json + git commit + git tag
+        # [skip ci] 防止 push 后的 commit 再次触发本 workflow
+        run: |
+          npm version ${{ steps.bump.outputs.bump }} \
+            -m "chore(release): v%s [skip ci]"
+          pnpm publish --access public --no-git-checks
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 推送 version commit 和 tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git push
+          git push --tags

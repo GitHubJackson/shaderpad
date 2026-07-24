@@ -1,33 +1,90 @@
 {
-  "name": "@shaderpad/playground",
+  "name": "@lucascv/shaderpad-playground",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
-  "description": "ShaderPad 可嵌入的 GLSL Playground 模块：编辑器 + 实时预览",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "description": "Embeddable GLSL editor + live WebGL preview for React docs (MDX / Astro / Docusaurus)",
+  "license": "MIT",
+  "author": {
+    "name": "Lucas",
+    "url": "https://github.com/GitHubJackson"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GitHubJackson/shaderpad.git",
+    "directory": "packages/shader-playground"
+  },
+  "bugs": "https://github.com/GitHubJackson/shaderpad/issues",
+  "homepage": "https://shaderpad.lucaslib.net",
+  "keywords": [
+    "react",
+    "glsl",
+    "shader",
+    "webgl",
+    "three",
+    "monaco",
+    "playground",
+    "embed",
+    "docs",
+    "mdx",
+    "docusaurus",
+    "astro"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./styles": "./src/styles/playground.css",
-    "./runtime": "./src/runtime/three-engine.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles": "./dist/styles/playground.css",
+    "./styles.css": "./dist/styles/playground.css",
+    "./runtime": {
+      "types": "./dist/runtime/three-engine.d.ts",
+      "import": "./dist/runtime/three-engine.js",
+      "require": "./dist/runtime/three-engine.cjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "build:css": "mkdir -p dist/styles && cp src/styles/playground.css dist/styles/playground.css",
+    "build": "tsup && pnpm build:css",
+    "pack": "pnpm build && pnpm pack",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
   },
   "peerDependencies": {
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
+    "react": "^18.3.0 || ^19.0.0",
+    "react-dom": "^18.3.0 || ^19.0.0",
     "@monaco-editor/react": "^4.6.0",
     "monaco-editor": "^0.50.0",
     "three": "^0.170.0"
   },
-  "dependencies": {
-    "@shaderpad/runtime": "workspace:*"
+  "peerDependenciesMeta": {
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@types/node": "^20.14.0",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@types/three": "^0.170.0",
+    "tsup": "^8.3.5",
     "typescript": "^5.4.5"
   }
 }

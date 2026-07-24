@@ -14,7 +14,7 @@
  * WebGLRenderer + RawShaderMaterial 是 raw GLSL 调试的成熟稳定组合。
  *
  * 此文件从 apps/web/src/lib/runtime/three-engine.ts 平移而来，
- * 作为 @shaderpad/playground 的运行时核心，与站点共用同一份代码。
+ * 作为 @lucascv/shaderpad-playground 的运行时核心，与站点共用同一份代码。
  */
 
 import * as THREE from "three";
@@ -144,12 +144,7 @@ export class ShaderEngine {
 
       if (this.showHelpers) {
         this.helpers = new THREE.Group();
-        const grid = new THREE.GridHelper(
-          10,
-          10,
-          0x666666,
-          0x2a2a35,
-        );
+        const grid = new THREE.GridHelper(10, 10, 0x666666, 0x2a2a35);
         grid.position.y = -0.001;
         this.helpers.add(grid);
 
