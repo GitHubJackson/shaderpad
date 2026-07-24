@@ -31,6 +31,7 @@ import {
   saveLastLang,
   saveLastStage,
 } from "@/lib/share/store";
+import { encodeShareUrl, getCurrentSharePayload } from "@/lib/share/url";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { Toolbar } from "./Toolbar";
 import { CopyButton } from "./CopyButton";
@@ -100,8 +101,19 @@ export function Playground({
   const theme = useStore(resolvedTheme);
 
   // ===== State =====
+  // 如果当前是 /play 分享链接，从 URL 的 ?vertex=&fragment=&lang= 里反序列化出来
+  // 一次性使用，不持久化到 localStorage（分享页是 noindex 的临时快照）
+  // lang 字段要做白名单校验：URL 可被任意篡改，未知值会让 currentAdapter 找不到而 crash
+  const sharePayload = useMemo(() => {
+    const p = getCurrentSharePayload();
+    if (!p) return null;
+    const validLang = listAdapters().some((a) => a.id === p.lang)
+      ? p.lang
+      : "glsl";
+    return { ...p, lang: validLang };
+  }, []);
   const [lang, setLang] = useState<ShaderLanguageId>(
-    () => loadLastLang() || "glsl",
+    () => sharePayload?.lang || loadLastLang() || "glsl",
   );
   // stage 仅作为「当前编辑哪个 tab」的 UI 状态 —— 3D 场景同时使用 vertex+fragment
   const [stage, setStage] = useState<ShaderStage>(
@@ -146,7 +158,7 @@ export function Playground({
     initTheme();
   }, []);
 
-  // ===== 初始化代码（按优先级：props > localStorage > 默认示例）=====
+  // ===== 初始化代码（按优先级：share URL > props > localStorage > 默认示例）=====
   // 依赖 [lang, geometry] —— 切换 stage tab 不重新解析（不会清空用户编辑）
   // 依赖 [geometry] 触发「每个几何体独立代码空间」的隔离语义
   useEffect(() => {
@@ -154,9 +166,11 @@ export function Playground({
     // 优先 localStorage；缺失时 fallback 到示例对应 stage 的代码
     const savedV = loadSavedCode(lang, "vertex", geometry);
     const savedF = loadSavedCode(lang, "fragment", geometry);
-    // Learn 页面 props 优先（仅在首屏 / 没有 localStorage 时生效）
-    const nextV = initialVertex ?? savedV ?? example.vertex;
-    const nextF = initialFragment ?? savedF ?? example.fragment;
+    // 优先级：分享 URL > Learn 页面 props > localStorage > 默认示例
+    const nextV =
+      sharePayload?.vertex ?? initialVertex ?? savedV ?? example.vertex;
+    const nextF =
+      sharePayload?.fragment ?? initialFragment ?? savedF ?? example.fragment;
     setVertexCode(nextV);
     setFragmentCode(nextF);
     vertexCodeRef.current = nextV;
@@ -521,6 +535,22 @@ export function Playground({
     compileAndRun(vertexCodeRef.current, fragmentCodeRef.current);
   };
 
+  // ===== 分享：把当前 vertex+fragment 压缩后塞进 URL，复制到剪贴板 =====
+  // 同时把浏览器地址栏替换成新 URL，方便用户继续操作时也保持「分享态」。
+  const handleShare = () => {
+    const url = encodeShareUrl({
+      vertex: vertexCodeRef.current,
+      fragment: fragmentCodeRef.current,
+      lang,
+    });
+    // 替换地址栏而不触发导航
+    window.history.replaceState(null, "", url);
+    // 复制到剪贴板；失败时 fallback 到 prompt
+    navigator.clipboard?.writeText(url).catch(() => {
+      prompt("复制此 URL 分享：", url);
+    });
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       <Toolbar
@@ -531,6 +561,7 @@ export function Playground({
         onLoadExample={handleLoadExample}
         geometry={geometry}
         onChangeGeometry={handleGeometryChange}
+        onShare={handleShare}
         rightSlot={
           <LanguageSwitcher
             current={lang}

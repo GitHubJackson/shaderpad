@@ -22,6 +22,7 @@ interface Props {
   onLoadExample: (id: string) => void;
   geometry: GeometryType;
   onChangeGeometry: (next: GeometryType) => void;
+  onShare?: () => void;
   rightSlot?: ReactNode;
 }
 
@@ -30,6 +31,7 @@ export function Toolbar({
   onLoadExample,
   geometry,
   onChangeGeometry,
+  onShare,
   rightSlot,
 }: Props) {
   const [openMenu, setOpenMenu] = useState<Menu>(null);
@@ -39,17 +41,11 @@ export function Toolbar({
     setOpenMenu((cur) => (cur === m ? null : m));
 
   const handleShare = () => {
-    const url = window.location.href; // MVP 暂用当前 URL（包含 ?code=）
-    navigator.clipboard?.writeText(url).then(
-      () => {
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 1500);
-      },
-      () => {
-        // 失败：传统方案
-        prompt("复制此 URL 分享：", url);
-      },
-    );
+    if (onShare) {
+      onShare();
+    }
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 1500);
   };
 
   return (
